@@ -1,5 +1,5 @@
 {
   "build": {
-    "dockerfile": "docker/php/Dockerfile"
+    "dockerfilePath": "docker/php/Dockerfile"
   }
 }
