@@ -1,0 +1,13 @@
+http:
+  routers:
+    app:
+      rule: "Host(`inventaris.localhost`)"
+      entryPoints:
+        - web
+      service: app
+
+  services:
+    app:
+      loadBalancer:
+        servers:
+          - url: "http://app:80"

@@ -1,0 +1,42 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--api.insecure=true"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=kamu@email.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - ./docker/traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - letsencrypt:/letsencrypt
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64m   # Traefik sangat ringan
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    ports:
+      - "8000:80"
+    volumes:
+      - ./src:/var/www/html
+    environment:
+      - APP_ENV=local
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m  # Laravel + PHP-FPM
+
+volumes:
+  letsencrypt:
