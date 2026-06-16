@@ -40,7 +40,7 @@ COPY docker/start.sh /start.sh
 RUN chmod +x /start.sh
 
 # Install Node dependencies and build assets
-RUN npm ci && npm run build
+RUN npm install && npm run build
 
 # Create necessary directories and set permissions
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/views && \
