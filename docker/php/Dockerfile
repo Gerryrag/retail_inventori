@@ -32,8 +32,8 @@ COPY src/ .
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Copy nginx config
-COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
+# Create .env from .env.example if .env doesn't exist
+RUN cp .env.example .env || true
 
 # Copy start script
 COPY docker/start.sh /start.sh
@@ -43,8 +43,10 @@ RUN chmod +x /start.sh
 RUN npm install && npm run build
 
 # Create necessary directories and set permissions
-RUN mkdir -p storage/logs storage/framework/cache storage/framework/views && \
-    chmod -R 777 storage bootstrap/cache
+RUN mkdir -p storage/logs storage/framework/cache storage/framework/views \
+    && mkdir -p /var/log/nginx /var/log/php-fpm \
+    && chmod -R 777 storage bootstrap/cache \
+    && chown -R nobody:nobody /var/www/html
 
 EXPOSE 80
 ENV PORT=80
