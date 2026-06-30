@@ -90,7 +90,7 @@ class CloudinaryUploader
             'cloud_name' => $cloudName,
             'api_key' => $apiKey,
             'api_secret' => $apiSecret,
-            'folder' => (string) config('services.cloudinary.folder', 'inventaris-retail/products'),
+            'folder' => (string) config('services.cloudinary.folder', 'official-merchandise/products'),
         ];
     }
 

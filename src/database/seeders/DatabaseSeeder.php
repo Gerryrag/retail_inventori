@@ -17,44 +17,56 @@ class DatabaseSeeder extends Seeder
     {
         $products = [
             [
-                'name' => 'Beras Premium 5kg',
-                'description' => 'Stok stabil untuk kebutuhan harian.',
-                'category' => 'Sembako',
-                'price' => 74000,
-                'stock' => 248,
-                'image_url' => 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80',
+                'sku' => 'OM-TSHIRT-LOGO',
+                'name' => 'Official Logo T-Shirt',
+                'description' => 'Kaos cotton combed dengan logo official brand.',
+                'category' => 'T-Shirt',
+                'price' => 149000,
+                'weight_gram' => 250,
+                'image_url' => 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=800&q=80',
+                'variants' => ['S' => 12, 'M' => 24, 'L' => 18, 'XL' => 9],
             ],
             [
-                'name' => 'Minyak Goreng 2L',
-                'description' => 'Produk cepat jalan untuk rumah tangga.',
-                'category' => 'Sembako',
-                'price' => 37500,
-                'stock' => 38,
-                'image_url' => 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=800&q=80',
+                'sku' => 'OM-HOODIE-CLASSIC',
+                'name' => 'Classic Brand Hoodie',
+                'description' => 'Hoodie fleece official merchandise.',
+                'category' => 'Hoodie',
+                'price' => 329000,
+                'weight_gram' => 650,
+                'image_url' => 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&w=800&q=80',
+                'variants' => ['M' => 8, 'L' => 10, 'XL' => 6],
             ],
             [
-                'name' => 'Kopi Robusta 250g',
-                'description' => 'Kategori minuman dengan margin tinggi.',
-                'category' => 'Minuman',
-                'price' => 28000,
-                'stock' => 94,
-                'image_url' => 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=800&q=80',
-            ],
-            [
-                'name' => 'Paket Snack Hemat',
-                'description' => 'Bundling retail untuk pembelian cepat.',
-                'category' => 'Makanan Ringan',
-                'price' => 19900,
-                'stock' => 11,
-                'image_url' => 'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?auto=format&fit=crop&w=800&q=80',
+                'sku' => 'OM-CAP-SIGNATURE',
+                'name' => 'Signature Cap',
+                'description' => 'Topi official dengan bordir logo.',
+                'category' => 'Cap',
+                'price' => 99000,
+                'weight_gram' => 180,
+                'image_url' => 'https://images.unsplash.com/photo-1521369909029-2afed882baee?auto=format&fit=crop&w=800&q=80',
+                'variants' => ['ALL SIZE' => 30],
             ],
         ];
 
         foreach ($products as $product) {
-            Product::updateOrCreate(
-                ['name' => $product['name']],
+            $variants = $product['variants'];
+            unset($product['variants']);
+
+            $model = Product::updateOrCreate(
+                ['sku' => $product['sku']],
                 $product + ['is_active' => true],
             );
+
+            foreach ($variants as $size => $stock) {
+                $model->variants()->updateOrCreate(
+                    ['size' => $size],
+                    [
+                        'sku' => $product['sku'].'-'.str_replace(' ', '-', $size),
+                        'stock' => $stock,
+                        'is_active' => true,
+                    ],
+                );
+            }
         }
     }
 }

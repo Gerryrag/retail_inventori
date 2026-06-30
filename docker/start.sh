@@ -98,6 +98,12 @@ if ! nc -z 127.0.0.1 9000 2>/dev/null; then
 fi
 
 # Start Nginx in foreground
-echo "[INFO] Starting Nginx..."
+echo "[INFO] Starting Nginx on port 80..."
+echo "[INFO] Nginx access log: /var/log/nginx/access.log"
+echo "[INFO] Nginx error log: /var/log/nginx/error.log"
 echo "=== Application Ready ==="
+
+# Show logs in real-time (optional, for debugging)
+tail -f /var/log/nginx/error.log &
+
 nginx -g "daemon off;"

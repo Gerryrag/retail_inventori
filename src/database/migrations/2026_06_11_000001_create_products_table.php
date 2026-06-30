@@ -10,11 +10,12 @@ return new class extends Migration
     {
         Schema::create('products', function (Blueprint $table) {
             $table->id();
+            $table->string('sku')->unique();
             $table->string('name');
             $table->text('description')->nullable();
             $table->string('category')->nullable();
             $table->unsignedInteger('price')->default(0);
-            $table->unsignedInteger('stock')->default(0);
+            $table->unsignedInteger('weight_gram')->default(0);
             $table->text('image_url')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();

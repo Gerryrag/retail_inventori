@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\StockMovement;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,23 +17,34 @@ class StockMovementController extends Controller
     public function index(): View
     {
         return view('admin.stock.index', [
-            'products' => Product::query()->orderBy('name')->get(),
-            'movements' => StockMovement::query()->with('product')->latest()->limit(50)->get(),
+            'variants' => ProductVariant::query()
+                ->with('product')
+                ->whereHas('product')
+                ->join('products', 'products.id', '=', 'product_variants.product_id')
+                ->orderBy('products.name')
+                ->orderBy('product_variants.size')
+                ->select('product_variants.*')
+                ->get(),
+            'movements' => StockMovement::query()->with(['product', 'variant'])->latest()->limit(50)->get(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'product_variant_id' => ['required', 'integer', 'exists:product_variants,id'],
             'type' => ['required', 'in:in,out,correction'],
             'quantity' => ['required', 'integer', 'min:0'],
             'note' => ['nullable', 'string'],
         ]);
 
         DB::transaction(function () use ($data): void {
-            $product = Product::query()->lockForUpdate()->findOrFail($data['product_id']);
-            $stockBefore = $product->stock;
+            $variant = ProductVariant::query()
+                ->with('product')
+                ->lockForUpdate()
+                ->findOrFail($data['product_variant_id']);
+
+            $stockBefore = $variant->stock;
             $quantity = (int) $data['quantity'];
 
             $stockAfter = match ($data['type']) {
@@ -43,14 +55,15 @@ class StockMovementController extends Controller
 
             if ($stockAfter < 0) {
                 throw ValidationException::withMessages([
-                    'quantity' => 'Stok tidak cukup untuk barang keluar.',
+                    'quantity' => 'Stok varian ukuran tidak cukup untuk barang keluar.',
                 ]);
             }
 
-            $product->update(['stock' => $stockAfter]);
+            $variant->update(['stock' => $stockAfter]);
 
             StockMovement::create([
-                'product_id' => $product->id,
+                'product_id' => $variant->product_id,
+                'product_variant_id' => $variant->id,
                 'type' => $data['type'],
                 'quantity' => $quantity,
                 'stock_before' => $stockBefore,

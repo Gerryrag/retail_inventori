@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Masuk - Inventaris Retail</title>
+    <title>Masuk - Official Merchandise</title>
     <style>
         :root {
             --ink: #17211b;
@@ -130,56 +130,6 @@
             font-weight: 900;
         }
 
-        .divider {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--muted);
-            font-size: 13px;
-        }
-
-        .divider::before, .divider::after {
-            content: "";
-            height: 1px;
-            flex: 1;
-            background: var(--line);
-        }
-
-        label {
-            display: grid;
-            gap: 8px;
-            color: var(--muted);
-            font-size: 13px;
-            font-weight: 700;
-        }
-
-        form {
-            display: grid;
-            gap: 12px;
-        }
-
-        input {
-            min-height: 44px;
-            border: 1px solid var(--line);
-            border-radius: 7px;
-            padding: 0 12px;
-            color: var(--ink);
-            font: inherit;
-        }
-
-        .button {
-            display: inline-flex;
-            min-height: 46px;
-            align-items: center;
-            justify-content: center;
-            border: 0;
-            border-radius: 8px;
-            background: var(--brand);
-            color: white;
-            font: inherit;
-            font-weight: 800;
-        }
-
         .muted-link {
             color: var(--brand-dark);
             font-weight: 800;
@@ -195,19 +145,19 @@
 <body>
     <main class="shell">
         <section class="intro">
-            <a class="brand" href="{{ route('home') }}">
+            <a class="brand" href="{{ route('login') }}">
                 <span class="mark">IR</span>
-                <span>Inventaris Retail</span>
+                <span>Official Merchandise</span>
             </a>
             <div>
-                <h1>Dua akses berbeda untuk pelanggan dan admin.</h1>
-                <p>Pelanggan masuk dengan Google untuk belanja dan checkout. Admin masuk memakai username dan password khusus untuk mengelola operasional toko.</p>
+                <h1>Akses admin lewat Google.</h1>
+                <p>Gunakan akun Google yang sudah didaftarkan sebagai admin untuk mengelola produk, stok, laporan, notifikasi, dan chat.</p>
             </div>
         </section>
 
         <section class="panel">
-            <h2>Masuk</h2>
-            <p>Pilih akses sesuai kebutuhan. Pelanggan wajib memakai Google, sedangkan admin memakai form manual.</p>
+            <h2>Masuk Admin</h2>
+            <p>Username dan password manual sudah dinonaktifkan. Sistem hanya menerima email Google yang ada di daftar admin.</p>
 
             @if (session('status'))
                 <div class="status">{{ session('status') }}</div>
@@ -215,31 +165,8 @@
 
             <a class="google" href="{{ route('google.redirect') }}">
                 <span>G</span>
-                Masuk sebagai Pelanggan
+                Masuk dengan Google
             </a>
-
-            <div class="divider">login admin</div>
-
-            <form method="POST" action="{{ route('admin.login') }}">
-                @csrf
-                <label>
-                    Username
-                    <input name="username" type="text" value="{{ old('username') }}" placeholder="admin" required>
-                    @error('username')
-                        <span class="status">{{ $message }}</span>
-                    @enderror
-                </label>
-                <label>
-                    Password
-                    <input name="password" type="password" placeholder="Password admin" required>
-                    @error('password')
-                        <span class="status">{{ $message }}</span>
-                    @enderror
-                </label>
-                <button class="button" type="submit">Masuk Admin</button>
-            </form>
-
-            <a class="muted-link" href="{{ route('home') }}">Kembali ke etalase</a>
         </section>
     </main>
 </body>

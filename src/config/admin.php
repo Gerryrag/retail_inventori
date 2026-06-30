@@ -1,6 +1,10 @@
 <?php
 
+$emails = array_filter(array_map(
+    fn (string $email): string => strtolower(trim($email)),
+    explode(',', (string) env('ADMIN_EMAILS', env('ADMIN_EMAIL', ''))),
+));
+
 return [
-    'username' => env('ADMIN_USERNAME', 'admin'),
-    'password' => env('ADMIN_PASSWORD', 'admin12345'),
+    'emails' => array_values(array_unique($emails)),
 ];

@@ -5,9 +5,29 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['user_id', 'product_id', 'product_name', 'unit_price', 'quantity', 'total_price', 'status'])]
+#[Fillable([
+    'order_number',
+    'customer_name',
+    'customer_email',
+    'customer_phone',
+    'shipping_address',
+    'destination_city_id',
+    'destination_city_name',
+    'status',
+    'payment_status',
+    'fulfillment_status',
+    'subtotal',
+    'shipping_cost',
+    'grand_total',
+    'courier',
+    'courier_service',
+    'doku_invoice_number',
+    'payment_url',
+    'paid_at',
+])]
 class Order extends Model
 {
     use HasFactory;
@@ -15,24 +35,35 @@ class Order extends Model
     protected function casts(): array
     {
         return [
-            'unit_price' => 'integer',
-            'quantity' => 'integer',
-            'total_price' => 'integer',
+            'subtotal' => 'integer',
+            'shipping_cost' => 'integer',
+            'grand_total' => 'integer',
+            'paid_at' => 'datetime',
         ];
     }
 
-    public function user(): BelongsTo
+    public function items(): HasMany
     {
-        return $this->belongsTo(User::class);
+        return $this->hasMany(OrderItem::class);
     }
 
-    public function product(): BelongsTo
+    public function paymentTransactions(): HasMany
     {
-        return $this->belongsTo(Product::class);
+        return $this->hasMany(PaymentTransaction::class);
     }
 
-    public function getFormattedTotalAttribute(): string
+    public function shipment(): HasOne
     {
-        return 'Rp'.number_format($this->total_price, 0, ',', '.');
+        return $this->hasOne(Shipment::class);
+    }
+
+    public function trackings(): HasMany
+    {
+        return $this->hasMany(OrderTracking::class);
+    }
+
+    public function getFormattedGrandTotalAttribute(): string
+    {
+        return 'Rp'.number_format($this->grand_total, 0, ',', '.');
     }
 }

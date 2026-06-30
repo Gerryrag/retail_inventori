@@ -12,8 +12,11 @@ class ChatController extends Controller
 {
     public function index(): View
     {
+        $messages = ChatMessage::query()->latest()->limit(50)->get()->reverse()->values();
+
         return view('admin.chat.index', [
-            'messages' => ChatMessage::query()->latest()->limit(50)->get()->reverse(),
+            'messages' => $messages,
+            'threads' => $messages->groupBy('sender_name'),
         ]);
     }
 

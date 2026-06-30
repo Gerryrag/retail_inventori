@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Services\CloudinaryUploader;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ProductController extends Controller
@@ -14,13 +15,29 @@ class ProductController extends Controller
     public function index(): View
     {
         return view('admin.products.index', [
-            'products' => Product::query()->latest()->get(),
+            'products' => Product::query()
+                ->with('variants')
+                ->latest()
+                ->get(),
         ]);
     }
 
     public function store(Request $request, CloudinaryUploader $uploader): RedirectResponse
     {
-        Product::create($this->productData($request, $uploader));
+        $product = Product::create($this->productData($request, $uploader));
+
+        foreach ($request->input('variants', []) as $variant) {
+            if (! filled($variant['size'] ?? null)) {
+                continue;
+            }
+
+            $product->variants()->create([
+                'size' => strtoupper((string) $variant['size']),
+                'sku' => ($variant['sku'] ?? null) ?: $product->sku.'-'.strtoupper((string) $variant['size']),
+                'stock' => max(0, (int) ($variant['stock'] ?? 0)),
+                'is_active' => (bool) ($variant['is_active'] ?? true),
+            ]);
+        }
 
         return redirect()
             ->route('admin.products.index')
@@ -51,21 +68,32 @@ class ProductController extends Controller
     private function productData(Request $request, CloudinaryUploader $uploader): array
     {
         $data = $request->validate([
+            'sku' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('products', 'sku')->ignore($request->route('product')),
+            ],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'category' => ['nullable', 'string', 'max:255'],
             'price' => ['required', 'integer', 'min:0'],
-            'stock' => ['required', 'integer', 'min:0'],
+            'weight_gram' => ['required', 'integer', 'min:0'],
             'image_url' => ['nullable', 'url'],
             'image' => ['nullable', 'image', 'max:5120'],
             'is_active' => ['nullable', 'boolean'],
+            'variants' => ['nullable', 'array'],
+            'variants.*.size' => ['nullable', 'string', 'max:24', 'distinct'],
+            'variants.*.sku' => ['nullable', 'string', 'max:255', 'unique:product_variants,sku'],
+            'variants.*.stock' => ['nullable', 'integer', 'min:0'],
+            'variants.*.is_active' => ['nullable', 'boolean'],
         ]) + ['is_active' => false];
 
         if ($request->hasFile('image')) {
             $data['image_url'] = $uploader->uploadImage($request->file('image'));
         }
 
-        unset($data['image']);
+        unset($data['image'], $data['variants']);
 
         return $data;
     }

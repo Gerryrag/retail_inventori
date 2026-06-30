@@ -1,0 +1,195 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
+use App\Models\Order;
+use App\Models\ProductVariant;
+use App\Services\DokuPaymentService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
+use RuntimeException;
+
+class OrderController extends Controller
+{
+    public function index(): View
+    {
+        return view('admin.orders.index', [
+            'orders' => Order::query()
+                ->with(['items', 'shipment', 'paymentTransactions'])
+                ->latest()
+                ->get(),
+            'variants' => ProductVariant::query()
+                ->with('product')
+                ->whereHas('product')
+                ->join('products', 'products.id', '=', 'product_variants.product_id')
+                ->orderBy('products.name')
+                ->orderBy('product_variants.size')
+                ->select('product_variants.*')
+                ->get(),
+        ]);
+    }
+
+    public function store(Request $request, DokuPaymentService $doku): RedirectResponse
+    {
+        $data = $request->validate([
+            'product_variant_id' => ['required', 'integer', 'exists:product_variants,id'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'customer_name' => ['required', 'string', 'max:255'],
+            'customer_email' => ['nullable', 'email', 'max:255'],
+            'customer_phone' => ['nullable', 'string', 'max:40'],
+            'shipping_address' => ['nullable', 'string'],
+            'destination_city_id' => ['nullable', 'string', 'max:40'],
+            'destination_city_name' => ['nullable', 'string', 'max:255'],
+            'shipping_cost' => ['required', 'integer', 'min:0'],
+            'courier' => ['nullable', 'string', 'max:40'],
+            'courier_service' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        $order = DB::transaction(function () use ($data): Order {
+            $variant = ProductVariant::query()
+                ->with('product')
+                ->lockForUpdate()
+                ->findOrFail($data['product_variant_id']);
+
+            $subtotal = $variant->product->price * (int) $data['quantity'];
+            $shippingCost = (int) $data['shipping_cost'];
+            $orderNumber = 'OM-'.now()->format('YmdHis').'-'.Str::upper(Str::random(4));
+            $invoiceNumber = 'DOKU-'.$orderNumber;
+
+            $order = Order::create([
+                'order_number' => $orderNumber,
+                'customer_name' => $data['customer_name'],
+                'customer_email' => $data['customer_email'] ?? null,
+                'customer_phone' => $data['customer_phone'] ?? null,
+                'shipping_address' => $data['shipping_address'] ?? null,
+                'destination_city_id' => $data['destination_city_id'] ?? null,
+                'destination_city_name' => $data['destination_city_name'] ?? null,
+                'status' => 'pending_payment',
+                'payment_status' => 'pending',
+                'fulfillment_status' => 'waiting_payment',
+                'subtotal' => $subtotal,
+                'shipping_cost' => $shippingCost,
+                'grand_total' => $subtotal + $shippingCost,
+                'courier' => $data['courier'] ?? null,
+                'courier_service' => $data['courier_service'] ?? null,
+                'doku_invoice_number' => $invoiceNumber,
+            ]);
+
+            $order->items()->create([
+                'product_id' => $variant->product_id,
+                'product_variant_id' => $variant->id,
+                'product_name' => $variant->product->name,
+                'variant_size' => $variant->size,
+                'unit_price' => $variant->product->price,
+                'quantity' => (int) $data['quantity'],
+                'total_price' => $subtotal,
+            ]);
+
+            $order->paymentTransactions()->create([
+                'provider' => 'doku',
+                'invoice_number' => $invoiceNumber,
+                'status' => 'pending',
+                'request_payload' => [
+                    'sandbox' => true,
+                    'created_from' => 'admin_test_order',
+                ],
+            ]);
+
+            $order->shipment()->create([
+                'courier' => $data['courier'] ?? null,
+                'service' => $data['courier_service'] ?? null,
+                'cost' => $shippingCost,
+                'status' => 'waiting_payment',
+            ]);
+
+            return $order;
+        });
+
+        // Auto-create admin notification for the new order
+        AdminNotification::create([
+            'title'   => 'Order Baru: ' . $order->order_number,
+            'message' => 'Order baru dari ' . $order->customer_name . ' senilai Rp ' . number_format($order->grand_total, 0, ',', '.') . ' menunggu pembayaran.',
+            'type'    => 'warning',
+            'is_read' => false,
+        ]);
+
+        try {
+            $doku->createCheckoutPayment($order);
+        } catch (RuntimeException $exception) {
+            return redirect()
+                ->route('admin.orders.index')
+                ->with('status', 'Order dibuat, tapi payment URL DOKU belum berhasil dibuat: '.$exception->getMessage());
+        }
+
+        return redirect()->route('admin.orders.index')->with('status', 'Order testing berhasil dibuat dan payment URL DOKU sandbox sudah tersedia.');
+    }
+
+    public function createDokuPayment(Order $order, DokuPaymentService $doku): RedirectResponse
+    {
+        try {
+            $doku->createCheckoutPayment($order);
+        } catch (RuntimeException $exception) {
+            return redirect()
+                ->route('admin.orders.index')
+                ->with('status', 'Payment URL DOKU belum berhasil dibuat: '.$exception->getMessage());
+        }
+
+        return redirect()->route('admin.orders.index')->with('status', 'Payment URL DOKU berhasil dibuat ulang.');
+    }
+
+    public function updateShipment(Request $request, Order $order): RedirectResponse
+    {
+        $data = $request->validate([
+            'courier' => ['required', 'string', 'max:40'],
+            'service' => ['nullable', 'string', 'max:80'],
+            'tracking_number' => ['required', 'string', 'max:120'],
+            'status' => ['required', 'string', 'max:80'],
+        ]);
+
+        $order->shipment()->updateOrCreate(
+            ['order_id' => $order->id],
+            [
+                'courier' => $data['courier'],
+                'service' => $data['service'] ?? $order->courier_service,
+                'tracking_number' => $data['tracking_number'],
+                'status' => $data['status'],
+                'cost' => $order->shipping_cost,
+            ],
+        );
+
+        $order->trackings()->create([
+            'tracking_number' => $data['tracking_number'],
+            'courier' => $data['courier'],
+            'status' => $data['status'],
+            'description' => 'Update manual dari panel admin.',
+            'tracked_at' => now(),
+        ]);
+
+        $order->update([
+            'courier' => $data['courier'],
+            'courier_service' => $data['service'] ?? $order->courier_service,
+            'fulfillment_status' => $data['status'],
+        ]);
+
+        return redirect()->route('admin.orders.index')->with('status', 'Resi dan status pengiriman berhasil diperbarui.');
+    }
+
+    public function invoice(Order $order): View
+    {
+        return view('admin.orders.invoice', [
+            'order' => $order->load(['items', 'paymentTransactions', 'shipment']),
+        ]);
+    }
+
+    public function packingSlip(Order $order): View
+    {
+        return view('admin.orders.packing-slip', [
+            'order' => $order->load(['items', 'shipment']),
+        ]);
+    }
+}
